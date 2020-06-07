@@ -1,6 +1,8 @@
+mod attributes;
 mod class;
 mod constants;
 mod fields;
+mod methods;
 mod read;
 
 use class::*;

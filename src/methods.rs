@@ -2,8 +2,8 @@ use crate::attributes::*;
 use crate::constants::*;
 use crate::read::*;
 
-use crate::fields::Visibility::*;
-use bitflags::*;
+use crate::methods::Visibility::*;
+use bitflags;
 use std::io::{Read, Result};
 
 #[derive(Debug)]
@@ -20,10 +20,13 @@ bitflags! {
         const Protected = 0x0004;
         const Static = 0x0008;
         const Final = 0x0010;
-        const Volatile = 0x0040;
-        const Transient = 0x0080;
+        const Synchronized = 0x0020;
+        const Bridge = 0x0040;
+        const Varargs = 0x0080;
+        const Native = 0x0100;
+        const Abstract = 0x0400;
+        const Strict = 0x0800;
         const Synthetic = 0x1000;
-        const Enum = 0x4000;
     }
 }
 
@@ -32,18 +35,13 @@ struct AccessFlags {
     visibility: Visibility,
     is_static: bool,
     is_final: bool,
-    is_volatile: bool, // Probably doesn't matter since we aren't caching anyway
-    is_transient: bool,
+    is_synchronized: bool, // This probably won't matter unless I do multi-threading
+    is_bridge: bool,
+    is_varargs: bool,
+    is_native: bool,
+    is_abstract: bool,
+    is_strict: bool,
     is_synthetic: bool,
-    is_enum: bool,
-}
-
-#[derive(Debug)]
-pub struct Field {
-    access_flags: AccessFlags,
-    name: String,
-    descriptor: String,
-    attributes: Vec<Attribute>,
 }
 
 fn parse_access_flags(mask: u16) -> Result<AccessFlags> {
@@ -65,29 +63,39 @@ fn parse_access_flags(mask: u16) -> Result<AccessFlags> {
         visibility,
         is_static: flags.contains(AccessFlagsBits::Static),
         is_final: flags.contains(AccessFlagsBits::Final),
-        is_volatile: flags.contains(AccessFlagsBits::Volatile),
-        is_transient: flags.contains(AccessFlagsBits::Transient),
+        is_synchronized: flags.contains(AccessFlagsBits::Synchronized),
+        is_bridge: flags.contains(AccessFlagsBits::Bridge),
+        is_varargs: flags.contains(AccessFlagsBits::Varargs),
+        is_native: flags.contains(AccessFlagsBits::Native),
+        is_abstract: flags.contains(AccessFlagsBits::Abstract),
+        is_strict: flags.contains(AccessFlagsBits::Strict),
         is_synthetic: flags.contains(AccessFlagsBits::Synthetic),
-        is_enum: flags.contains(AccessFlagsBits::Enum),
     })
 }
 
-pub fn parse_fields(
-    reader: &mut dyn Read,
-    constant_pool: &Vec<Constant>,
-) -> Result<Vec<Field>> {
-    let mut fields = Vec::new();
-    let fields_count = read_u2(reader)?;
+#[derive(Debug)]
+pub struct Method {
+    access_flags: AccessFlags,
+    name: String,
+    descriptor: String, // TODO do I want this to be an enum?
+    attributes: Vec<Attribute>,
+}
 
-    // TODO come back to this when I'm testing a class file with fields
-    for _ in 0..fields_count {
+pub fn parse_methods<'a>(
+    reader: &mut dyn Read,
+    constant_pool: &'a Vec<Constant>,
+) -> Result<Vec<Method>> {
+    let mut methods = Vec::new();
+    let methods_count = read_u2(reader)?;
+
+    for _ in 0..methods_count {
         let access_flags = parse_access_flags(read_u2(reader)?)?;
 
         let name = resolve_utf8(read_u2(reader)? as usize, constant_pool).unwrap();
 
         let descriptor = resolve_utf8(read_u2(reader)? as usize, constant_pool).unwrap();
 
-        fields.push(Field {
+        methods.push(Method {
             access_flags,
             name,
             descriptor,
@@ -95,5 +103,5 @@ pub fn parse_fields(
         });
     }
 
-    Ok(fields)
+    Ok(methods)
 }

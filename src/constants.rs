@@ -7,6 +7,28 @@ use std::str;
 use ConstantInfo::*;
 use ConstantTag::*;
 
+#[derive(Debug)]
+pub enum ConstantValue {
+    Empty, // Satisfy compiler
+    Integer(i32),
+    Float(f32),
+    Long(i64),
+    Double(f64),
+    String(String),
+}
+
+// TODO do I even need this?
+pub fn get_constant_value(constant: &Constant, constant_pool: &Vec<Constant>) -> ConstantValue {
+    match constant.info {
+        IntInfo {tag, value} => ConstantValue::Integer(value),
+        FloatInfo {tag, value} => ConstantValue::Float(value),
+        LongInfo {tag, value} => ConstantValue::Long(value),
+        DoubleInfo {tag, value} => ConstantValue::Double(value),
+        StringInfo {tag, index } => ConstantValue::String(resolve_utf8(index as usize, constant_pool).unwrap()),
+        _ => ConstantValue::Empty,
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
 #[repr(u8)]
 pub enum ConstantTag {
@@ -201,8 +223,14 @@ pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
 
 // TODO change this into a Result when I figure out error handling
 pub fn resolve_utf8(index: usize, constant_pool: &Vec<Constant>) -> Option<String> {
-    match &constant_pool[index].info {
+    match &constant_pool[index - 1].info {
         ConstantInfo::Utf8Info { tag, value } => Some(value.to_string()),
-        _ => None, // TODO throw an actual error at some point
+        ConstantInfo::ClassInfo { tag, name_index } => {
+            resolve_utf8(*name_index as usize, constant_pool)
+        }
+        a => {
+            println!("{} {:?}", index, a);
+            None
+        } // TODO throw an actual error at some point
     }
 }
