@@ -5,6 +5,9 @@ mod read;
 
 use class::*;
 
+#[macro_use]
+extern crate bitflags;
+
 // Non-goals:
 //      - Optimisation
 //      - Completeness (i.e. will not cover entire spec)

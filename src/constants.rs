@@ -198,3 +198,11 @@ pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
 
     Ok(pool)
 }
+
+// TODO change this into a Result when I figure out error handling
+pub fn resolve_utf8(index: usize, constant_pool: &Vec<Constant>) -> Option<String> {
+    match &constant_pool[index].info {
+        ConstantInfo::Utf8Info { tag, value } => Some(value.to_string()),
+        _ => None, // TODO throw an actual error at some point
+    }
+}
