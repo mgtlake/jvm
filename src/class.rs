@@ -1,8 +1,9 @@
-use crate::read::*;
 use crate::constants::*;
+use crate::read::*;
+use crate::fields::*;
 
+use std::fs::File;
 use std::io::{Read, Result};
-use std::fs::{File};
 
 #[derive(Debug)]
 struct Class {
@@ -10,7 +11,10 @@ struct Class {
     // TODO
 }
 
-fn parse_interfaces<'a>(reader: &'a mut dyn Read, constant_pool: &'a Vec<Constant>) -> Result<Vec<&'a Constant>> {
+fn parse_interfaces<'a>(
+    reader: &'a mut dyn Read,
+    constant_pool: &'a Vec<Constant>,
+) -> Result<Vec<&'a Constant>> {
     let mut interfaces = Vec::new();
     let interfaces_count = read_u2(reader)?;
 
@@ -47,6 +51,8 @@ pub fn parse_class() -> Result<()> {
 
     let interfaces = parse_interfaces(reader, &constant_pool)?;
     println!("{:?}", interfaces);
+
+    let fields = parse_fields(reader, &constant_pool);
 
     Ok(())
 }

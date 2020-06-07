@@ -1,7 +1,7 @@
-mod read;
+mod class;
 mod constants;
 mod fields;
-mod class;
+mod read;
 
 use class::*;
 

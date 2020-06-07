@@ -1,11 +1,11 @@
 use crate::read::*;
 
 use num_enum::TryFromPrimitive;
-use ConstantInfo::*;
-use ConstantTag::*;
 use std::convert::TryFrom;
 use std::io::{Read, Result};
 use std::str;
+use ConstantInfo::*;
+use ConstantTag::*;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
 #[repr(u8)]
