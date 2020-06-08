@@ -72,10 +72,7 @@ fn parse_access_flags(mask: u16) -> Result<AccessFlags> {
     })
 }
 
-pub fn parse_fields(
-    reader: &mut dyn Read,
-    constant_pool: &Vec<Constant>,
-) -> Result<Vec<Field>> {
+pub fn parse_fields(reader: &mut dyn Read, constant_pool: &Vec<Constant>) -> Result<Vec<Field>> {
     let mut fields = Vec::new();
     let fields_count = read_u2(reader)?;
 

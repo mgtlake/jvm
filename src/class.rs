@@ -3,7 +3,9 @@ use crate::fields::*;
 use crate::methods::*;
 use crate::read::*;
 
+use crate::attributes::Attribute::Code;
 use crate::attributes::{parse_attributes, Attribute};
+use crate::instructions::Instruction;
 use std::fs::File;
 use std::io::{Read, Result};
 
@@ -19,10 +21,35 @@ pub struct Class {
     attributes: Vec<Attribute>,
 }
 
-fn parse_interfaces(
-    reader: &mut dyn Read,
-    constant_pool: &Vec<Constant>,
-) -> Result<Vec<String>> {
+// TODO see if there's any other impl opportunities
+impl Class {
+    pub fn get_code(&self, method_name: String) -> Option<&Vec<Instruction>> {
+        self.methods
+            .iter()
+            .filter(|method| method.name == method_name)
+            .filter_map(|method| {
+                method
+                    .attributes
+                    .iter()
+                    .filter_map(|attribute| match attribute {
+                        Code {
+                            name,
+                            max_stack,
+                            max_locals,
+                            code_length,
+                            code,
+                            exceptions,
+                            attributes,
+                        } => Some(code),
+                        _ => None,
+                    })
+                    .next()
+            })
+            .next()
+    }
+}
+
+fn parse_interfaces(reader: &mut dyn Read, constant_pool: &Vec<Constant>) -> Result<Vec<String>> {
     let mut interfaces = Vec::new();
     let interfaces_count = read_u2(reader)?;
 
@@ -34,6 +61,7 @@ fn parse_interfaces(
 }
 
 pub fn parse_class() -> Result<Class> {
+    // TODO abstract this out
     let reader = &mut File::open("/home/mgtlake/Code/jvm/test/Add/Add.class")?;
 
     // Read first 4 bytes as magic value and check if it's valid

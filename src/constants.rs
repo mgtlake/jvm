@@ -20,11 +20,13 @@ pub enum ConstantValue {
 // TODO do I even need this?
 pub fn get_constant_value(constant: &Constant, constant_pool: &Vec<Constant>) -> ConstantValue {
     match constant.info {
-        IntInfo {tag, value} => ConstantValue::Integer(value),
-        FloatInfo {tag, value} => ConstantValue::Float(value),
-        LongInfo {tag, value} => ConstantValue::Long(value),
-        DoubleInfo {tag, value} => ConstantValue::Double(value),
-        StringInfo {tag, index } => ConstantValue::String(resolve_utf8(index as usize, constant_pool).unwrap()),
+        IntInfo { tag, value } => ConstantValue::Integer(value),
+        FloatInfo { tag, value } => ConstantValue::Float(value),
+        LongInfo { tag, value } => ConstantValue::Long(value),
+        DoubleInfo { tag, value } => ConstantValue::Double(value),
+        StringInfo { tag, index } => {
+            ConstantValue::String(resolve_utf8(index as usize, constant_pool).unwrap())
+        }
         _ => ConstantValue::Empty,
     }
 }

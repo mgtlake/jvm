@@ -76,9 +76,9 @@ fn parse_access_flags(mask: u16) -> Result<AccessFlags> {
 #[derive(Debug)]
 pub struct Method {
     access_flags: AccessFlags,
-    name: String,
+    pub name: String,
     descriptor: String, // TODO do I want this to be an enum?
-    attributes: Vec<Attribute>,
+    pub attributes: Vec<Attribute>,
 }
 
 pub fn parse_methods<'a>(

@@ -1,21 +1,20 @@
 use crate::constants::*;
+use crate::instructions::*;
 use crate::read::*;
 
 use crate::attributes::Attribute::{Code, ConstantValue, Empty};
+use crate::instructions::Instruction;
 use std::io::{Read, Result};
 
 #[derive(Debug)]
-struct Exception {
+pub struct Exception {
     start_pc: u16,
     end_pc: u16,
     handler_pc: u16,
     catch_type: Option<String>,
 }
 
-fn parse_exception(
-    reader: &mut dyn Read,
-    constant_pool: &Vec<Constant>,
-) -> Result<Exception> {
+fn parse_exception(reader: &mut dyn Read, constant_pool: &Vec<Constant>) -> Result<Exception> {
     let start_pc = read_u2(reader)?;
     let end_pc = read_u2(reader)?;
     let handler_pc = read_u2(reader)?;
@@ -34,7 +33,7 @@ fn parse_exception(
 }
 
 #[derive(Debug)]
-struct BootstrapMethod {
+pub struct BootstrapMethod {
     method_reference: Constant,
     num_arguments: u16,
     arguments: Vec<Constant>,
@@ -53,7 +52,7 @@ pub enum Attribute {
         max_stack: u16,
         max_locals: u16,
         code_length: u32,
-        code: Vec<u8>, // Bytes
+        code: Vec<Instruction>,
         exceptions: Vec<Exception>,
         attributes: Vec<Attribute>,
     },
@@ -98,7 +97,7 @@ pub fn parse_attributes(
                 let max_stack = read_u2(reader)?;
                 let max_locals = read_u2(reader)?;
                 let code_length = read_u4(reader)?;
-                let code = read_bytes(code_length as u64, reader)?;
+                let code = parse_code(read_bytes(code_length as u64, reader)?).unwrap();
 
                 let exceptions_length = read_u2(reader)?;
                 let mut exceptions = Vec::new();
