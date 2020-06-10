@@ -1,35 +1,14 @@
-use crate::read::*;
-
-use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;
 use std::io::{Read, Result};
 use std::str;
+
+use num_enum::TryFromPrimitive;
+
 use ConstantInfo::*;
 use ConstantTag::*;
 
-#[derive(Debug)]
-pub enum ConstantValue {
-    Empty, // Satisfy compiler
-    Integer(i32),
-    Float(f32),
-    Long(i64),
-    Double(f64),
-    String(String),
-}
-
-// TODO do I even need this?
-pub fn get_constant_value(constant: &Constant, constant_pool: &Vec<Constant>) -> ConstantValue {
-    match constant.info {
-        IntInfo { tag, value } => ConstantValue::Integer(value),
-        FloatInfo { tag, value } => ConstantValue::Float(value),
-        LongInfo { tag, value } => ConstantValue::Long(value),
-        DoubleInfo { tag, value } => ConstantValue::Double(value),
-        StringInfo { tag, index } => {
-            ConstantValue::String(resolve_utf8(index as usize, constant_pool).unwrap())
-        }
-        _ => ConstantValue::Empty,
-    }
-}
+use crate::execution::DataType;
+use crate::read::*;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
 #[repr(u8)]
@@ -125,9 +104,27 @@ pub struct Constant {
     info: ConstantInfo,
 }
 
+impl Constant {
+    pub fn get_constant_value(&self, constant_pool: &Vec<Constant>) -> Option<DataType> {
+        match self.info {
+            IntInfo { tag, value } => Some(DataType::Integer(value)),
+            FloatInfo { tag, value } => Some(DataType::Float(value)),
+            LongInfo { tag, value } => Some(DataType::Long(value)),
+            DoubleInfo { tag, value } => Some(DataType::Double(value)),
+            StringInfo { tag, index } => {
+                // TODO implement string data types
+                None
+                // ConstantValue::String(resolve_utf8(index as usize, constant_pool).unwrap())
+            }
+            _ => None,
+        }
+    }
+}
+
 pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
     let mut pool = Vec::new();
     let constant_pool_count = read_u2(reader)?;
+    println!("Constant pool count {}", constant_pool_count);
 
     // Insert a placeholder for double-width constants Long, Double
     let mut skip = false;

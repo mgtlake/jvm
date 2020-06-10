@@ -1,17 +1,23 @@
-use crate::class::*;
-use crate::instructions::*;
 use std::borrow::Borrow;
 
-#[derive(Copy, Clone, Debug)]
+use crate::class::*;
+use crate::instructions::Instruction::*;
+use crate::instructions::*;
+
+use DataType::*;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum DataType {
+    Byte(u8),
     Integer(i32),
     Float(f32),
     Long(i64),
     Double(f64),
     Char(char),
+    Bool(bool),
     ReturnAddress, // TODO work out how to represent this
     Reference,     // TODO work out how these work
-    Void, // Used as return value of void methods
+    Void,          // Used as return value of void methods
     Placeholder,   // Used for double-width types Long, Double
 }
 
@@ -29,43 +35,102 @@ impl Frame<'_> {
     pub fn exec(&mut self) -> DataType {
         while self.ip < self.code.len() {
             let op = self.code.get(self.ip).unwrap();
+            let mut jumped = false;
 
             match op {
-                Instruction::Nop => {}
+                Nop => {}
                 // TODO implement null references
-                Instruction::AConstNull => self.operand_stack.push(DataType::Reference),
-                Instruction::ILoad0 => self.operand_stack.push(self.local_variables[0]),
-                Instruction::ILoad1 => self.operand_stack.push(self.local_variables[1]),
-                Instruction::ALoad0 => self.operand_stack.push(self.local_variables[0]),
-                Instruction::IAdd => {
+                AConstNull => self.operand_stack.push(Reference),
+                IConstM1 => self.operand_stack.push(Integer(-1)),
+                IConst0 => self.operand_stack.push(Integer(0)),
+                IConst1 => self.operand_stack.push(Integer(1)),
+                IConst2 => self.operand_stack.push(Integer(2)),
+                IConst3 => self.operand_stack.push(Integer(3)),
+                IConst4 => self.operand_stack.push(Integer(4)),
+                IConst5 => self.operand_stack.push(Integer(5)),
+                LConst0 => self.operand_stack.push(Long(0)),
+                LConst1 => self.operand_stack.push(Long(1)),
+                FConst0 => self.operand_stack.push(Float(0.0)),
+                FConst1 => self.operand_stack.push(Float(1.0)),
+                FConst2 => self.operand_stack.push(Float(2.0)),
+                LDC => {
+                    let index = self.code[self.ip + 1] as usize;
+                    let constant = self.class.get_constant_value(index).unwrap();
+                    self.operand_stack.push(constant);
+                }
+                ILoad0 => self.operand_stack.push(self.local_variables[0]),
+                ILoad1 => self.operand_stack.push(self.local_variables[1]),
+                ILoad2 => self.operand_stack.push(self.local_variables[2]),
+                ILoad3 => self.operand_stack.push(self.local_variables[3]),
+                LLoad1 => self.operand_stack.push(self.local_variables[1]),
+                ALoad0 => self.operand_stack.push(self.local_variables[0]),
+                ALoad1 => self.operand_stack.push(self.local_variables[1]),
+                Dup => self
+                    .operand_stack
+                    .push(self.operand_stack.last().copied().unwrap()),
+                IAdd => {
                     let a = self.operand_stack.pop().unwrap();
                     let b = self.operand_stack.pop().unwrap();
                     let sum = match (a, b) {
-                        (DataType::Integer(a_val), DataType::Integer(b_val)) => Some(a_val + b_val),
+                        (Integer(a_val), Integer(b_val)) => Some(a_val + b_val),
                         _ => None,
                     };
-                    self.operand_stack.push(DataType::Integer(sum.unwrap()));
+                    self.operand_stack.push(Integer(sum.unwrap()));
                 }
-                Instruction::IReturn => {
+                LAdd => {
+                    let a = self.operand_stack.pop().unwrap();
+                    let b = self.operand_stack.pop().unwrap();
+                    let sum = match (a, b) {
+                        (Long(a_val), Long(b_val)) => Some(a_val + b_val),
+                        _ => None,
+                    };
+                    self.operand_stack.push(Long(sum.unwrap()));
+                }
+                IfACmpNeq => {
+                    let branch_byte_1 = self.code[self.ip + 1] as usize;
+                    let branch_byte_2 = self.code[self.ip + 2] as usize;
+                    let target_address_offset = (branch_byte_1 << 8) | branch_byte_2;
+
+                    let a = self.operand_stack.pop().unwrap();
+                    let b = self.operand_stack.pop().unwrap();
+                    if a != b {
+                        jumped = true;
+                        self.ip += target_address_offset;
+                    }
+                }
+                GOTO => {
+                    let branch_byte_1 = self.code[self.ip + 1] as usize;
+                    let branch_byte_2 = self.code[self.ip + 2] as usize;
+                    let target_address_offset = (branch_byte_1 << 8) | branch_byte_2;
+
+                    jumped = true;
+                    self.ip += target_address_offset;
+                }
+                IReturn | LReturn | FReturn | DReturn | AReturn => {
+                    // TODO implement synchronized
                     return self.operand_stack.pop().unwrap();
                 }
-                Instruction::Return => {
-                    return DataType::Void;
+                Return => {
+                    return Void;
                 }
-                Instruction::InvokeSpecial => {
+                InvokeSpecial => {
                     // TODO handle this complexity later
                 }
             };
             println!("OP {:?} STACK {:?}", op, self.operand_stack);
-            self.ip += 1;
+            if !jumped {
+                // If we jumped, don't need to manually update ip
+                self.ip += op.get_width();
+            }
         }
-        return DataType::Void;
+        return Void;
     }
 }
 
-pub fn load_frame<'a>(method: String, class: &'a Class, args: Vec<DataType>) -> Frame<'a> {
+pub fn load_frame(method: String, class: &Class, args: Vec<DataType>) -> Frame {
     // Find first method in class of that name that contains code
     // TODO do better than unwrap
+    println!("Executing method {}", method);
     let code = class.get_code(method).unwrap();
 
     let locals = Vec::from(args);

@@ -1,10 +1,11 @@
+use std::io::{Read, Result};
+
+use bitflags::*;
+
 use crate::attributes::*;
 use crate::constants::*;
-use crate::read::*;
-
 use crate::fields::Visibility::*;
-use bitflags::*;
-use std::io::{Read, Result};
+use crate::read::*;
 
 #[derive(Debug)]
 enum Visibility {

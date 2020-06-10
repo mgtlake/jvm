@@ -1,10 +1,11 @@
+use std::io::{Read, Result};
+
+use bitflags;
+
 use crate::attributes::*;
 use crate::constants::*;
-use crate::read::*;
-
 use crate::methods::Visibility::*;
-use bitflags;
-use std::io::{Read, Result};
+use crate::read::*;
 
 #[derive(Debug)]
 enum Visibility {
@@ -92,7 +93,7 @@ pub fn parse_methods<'a>(
         let access_flags = parse_access_flags(read_u2(reader)?)?;
 
         let name = resolve_utf8(read_u2(reader)? as usize, constant_pool).unwrap();
-
+        println!("Method: {}", name);
         let descriptor = resolve_utf8(read_u2(reader)? as usize, constant_pool).unwrap();
 
         methods.push(Method {

@@ -1,13 +1,13 @@
-use crate::constants::*;
-use crate::fields::*;
-use crate::methods::*;
-use crate::read::*;
+use std::io::{Read, Result};
 
 use crate::attributes::Attribute::Code;
 use crate::attributes::{parse_attributes, Attribute};
+use crate::constants::*;
+use crate::execution::DataType;
+use crate::fields::*;
 use crate::instructions::Instruction;
-use std::fs::File;
-use std::io::{Read, Result};
+use crate::methods::*;
+use crate::read::*;
 
 #[derive(Debug)]
 pub struct Class {
@@ -47,6 +47,14 @@ impl Class {
             })
             .next()
     }
+
+    pub fn get_constant_value(&self, index: usize) -> Option<DataType> {
+        let constant = match self.constant_pool.get(index) {
+            Some(c) => c,
+            None => return None,
+        };
+        constant.get_constant_value(&self.constant_pool)
+    }
 }
 
 fn parse_interfaces(reader: &mut dyn Read, constant_pool: &Vec<Constant>) -> Result<Vec<String>> {
@@ -60,10 +68,7 @@ fn parse_interfaces(reader: &mut dyn Read, constant_pool: &Vec<Constant>) -> Res
     Ok(interfaces)
 }
 
-pub fn parse_class() -> Result<Class> {
-    // TODO abstract this out
-    let reader = &mut File::open("/home/mgtlake/Code/jvm/test/Add/Add.class")?;
-
+pub fn parse_class(reader: &mut dyn Read) -> Result<Class> {
     // Read first 4 bytes as magic value and check if it's valid
     let magic = read_u4(reader)?;
     if magic != 0xCAFEBABE {
@@ -86,7 +91,11 @@ pub fn parse_class() -> Result<Class> {
 
     let this_class = resolve_utf8(read_u2(reader)? as usize, &constant_pool).unwrap();
     println!("This: {:?}", this_class);
-    let super_class = resolve_utf8(read_u2(reader)? as usize, &constant_pool).unwrap();
+    let super_class_index = read_u2(reader)?;
+    let super_class = match super_class_index {
+        0 => "N/A".to_string(), // This class must be Object, with no superclass
+        _ => resolve_utf8(super_class_index as usize, &constant_pool).unwrap(),
+    };
     println!("Super: {:?}", super_class);
 
     let interfaces = parse_interfaces(reader, &constant_pool)?;
@@ -106,7 +115,7 @@ pub fn parse_class() -> Result<Class> {
     }
 
     Ok(Class {
-        constant_pool: constant_pool,
+        constant_pool,
         name: this_class,
         super_name: super_class,
         interfaces,

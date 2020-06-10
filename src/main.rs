@@ -1,3 +1,13 @@
+#[macro_use]
+extern crate bitflags;
+
+use std::env;
+use std::fs::File;
+
+use class::*;
+
+use crate::execution::*;
+
 mod attributes;
 mod class;
 mod constants;
@@ -6,12 +16,6 @@ mod fields;
 mod instructions;
 mod methods;
 mod read;
-
-use crate::execution::*;
-use class::*;
-
-#[macro_use]
-extern crate bitflags;
 
 // TODO encode jvm primitives as types
 // TODO work out how references should work - conflict with rust type system?
@@ -23,11 +27,12 @@ extern crate bitflags;
 //      - Completeness (i.e. will not cover entire spec)
 //      - Verification (i.e. will accept functional programs forbidden by spec)
 fn main() {
-    let class = parse_class().unwrap();
-    let mut add_frame = load_frame(
-        "add".to_string(),
-        &class,
-        vec![DataType::Integer(1), DataType::Integer(1)],
-    );
-    add_frame.exec();
+    let args: Vec<_> = env::args().collect();
+    let path = args.get(1).unwrap();
+    println!("Path {}", path);
+    let reader = &mut File::open(path).unwrap();
+    let class = parse_class(reader).unwrap();
+    let mut add_frame = load_frame("<init>".to_string(), &class, vec![]);
+    let result = add_frame.exec();
+    println!("Result {:?}", result);
 }

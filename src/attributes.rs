@@ -1,10 +1,11 @@
-use crate::constants::*;
-use crate::instructions::*;
-use crate::read::*;
+use std::io::{Read, Result};
 
 use crate::attributes::Attribute::{Code, ConstantValue, Empty};
+use crate::constants::*;
+use crate::execution::DataType;
 use crate::instructions::Instruction;
-use std::io::{Read, Result};
+use crate::instructions::*;
+use crate::read::*;
 
 #[derive(Debug)]
 pub struct Exception {
@@ -45,7 +46,7 @@ pub enum Attribute {
     Empty, // Only used to satisfy Rust's match completeness check
     ConstantValue {
         name: String,
-        value: crate::constants::ConstantValue,
+        value: DataType,
     },
     Code {
         name: String,
@@ -91,13 +92,15 @@ pub fn parse_attributes(
         let attribute = match name.as_str() {
             "ConstantValue" => ConstantValue {
                 name,
-                value: get_constant_value(&constant_pool[read_u2(reader)? as usize], constant_pool),
+                value: constant_pool[read_u2(reader)? as usize]
+                    .get_constant_value(constant_pool)
+                    .unwrap(),
             },
             "Code" => {
                 let max_stack = read_u2(reader)?;
                 let max_locals = read_u2(reader)?;
                 let code_length = read_u4(reader)?;
-                let code = parse_code(read_bytes(code_length as u64, reader)?).unwrap();
+                let code = parse_code(read_bytes(code_length as u64, reader)?).unwrap_or(vec![]);
 
                 let exceptions_length = read_u2(reader)?;
                 let mut exceptions = Vec::new();
