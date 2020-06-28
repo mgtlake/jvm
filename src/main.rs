@@ -1,5 +1,8 @@
 #[macro_use]
 extern crate bitflags;
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
 
 use std::env;
 use std::fs::File;
@@ -32,7 +35,12 @@ fn main() {
     println!("Path {}", path);
     let reader = &mut File::open(path).unwrap();
     let class = parse_class(reader).unwrap();
-    let mut add_frame = load_frame("<init>".to_string(), &class, vec![]);
-    let result = add_frame.exec();
-    println!("Result {:?}", result);
+    if class.has_method("<clinit>".to_string()) {
+        load_frame("<clinit>", &class, vec![]).exec();
+    }
+    if !class.has_method("main".to_string()) {
+        println!("No main method");
+    }
+    let result = load_frame("main", &class, vec![]).exec();
+    println!("Result: {:?}", result);
 }

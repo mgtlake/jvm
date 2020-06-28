@@ -1,0 +1,9 @@
+field = { base | reference | array }
+base = { "B" | "C" | "D" | "F" | "I" | "F" | "I" | "J" | "S" | "Z" }
+reference = { "L" ~ class ~ ";" }
+class = { (!(";") ~ ANY)+ }
+array = { "[" ~ field }
+
+result = { "V" | field }
+
+method = { "(" ~ field* ~ ")" ~ result }

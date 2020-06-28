@@ -2,6 +2,7 @@ use std::io::{Read, Result};
 
 use crate::attributes::Attribute::Code;
 use crate::attributes::{parse_attributes, Attribute};
+use crate::constants::Constant::{FieldInfo, NameAndTypeInfo};
 use crate::constants::*;
 use crate::execution::DataType;
 use crate::fields::*;
@@ -12,7 +13,7 @@ use crate::read::*;
 #[derive(Debug)]
 pub struct Class {
     constant_pool: Vec<Constant>,
-    name: String,
+    pub name: String,
     super_name: String,
     // access_flags: TODO implement this
     interfaces: Vec<String>,
@@ -23,7 +24,14 @@ pub struct Class {
 
 // TODO see if there's any other impl opportunities
 impl Class {
-    pub fn get_code(&self, method_name: String) -> Option<&Vec<Instruction>> {
+    // TODO consider if I want to make it an option
+    // imo no, because failures aren't recoverable and should never ocur
+    // But other places want it as an option
+    pub fn get_constant(&self, i: usize) -> Option<&Constant> {
+        self.constant_pool.get(i - 1)
+    }
+
+    pub fn get_code(&self, method_name: &str) -> Option<&Vec<Instruction>> {
         self.methods
             .iter()
             .filter(|method| method.name == method_name)
@@ -49,11 +57,49 @@ impl Class {
     }
 
     pub fn get_constant_value(&self, index: usize) -> Option<DataType> {
-        let constant = match self.constant_pool.get(index) {
+        let constant = match self.get_constant(index) {
             Some(c) => c,
             None => return None,
         };
         constant.get_constant_value(&self.constant_pool)
+    }
+
+    pub fn get_method_ref_from_constant(&self, index: usize) -> Option<(String, &Constant)> {
+        let (class_index, name_and_type_index) = match self.get_constant(index) {
+            Some(FieldInfo {
+                tag,
+                class_index,
+                name_and_type_index,
+            }) => (*class_index as usize, *name_and_type_index as usize),
+            _ => return None,
+        };
+
+        let class_name = resolve_utf8(class_index, &self.constant_pool).unwrap();
+        Some((
+            class_name,
+            self.get_constant(name_and_type_index).unwrap(),
+        ))
+    }
+
+    pub fn has_method(&self, name: String) -> bool {
+        self.methods.iter().any(|method| method.name == name)
+    }
+
+    pub fn get_method(&self, name_and_type: &Constant) -> Option<&Method> {
+        match name_and_type {
+            NameAndTypeInfo {
+                tag,
+                name_index,
+                descriptor_index,
+            } => self
+                .methods
+                .iter()
+                .filter(|method| {
+                    method.name == resolve_utf8(*name_index as usize, &self.constant_pool).unwrap()
+                })
+                .last(),
+            _ => None,
+        }
     }
 }
 
@@ -84,7 +130,7 @@ pub fn parse_class(reader: &mut dyn Read) -> Result<Class> {
     // Read constant pool
     let constant_pool = parse_constant_pool(reader)?;
     for i in 1..=constant_pool.len() {
-        println!("{} - {:?}", i, constant_pool[i - 1]);
+        println!("Constant {}\n\t{:?}", i, constant_pool[i - 1]);
     }
 
     let access_flags = read_u2(reader)?; // TODO parse
@@ -99,20 +145,21 @@ pub fn parse_class(reader: &mut dyn Read) -> Result<Class> {
     println!("Super: {:?}", super_class);
 
     let interfaces = parse_interfaces(reader, &constant_pool)?;
-    println!("{:?}", interfaces);
+    println!("Interfaces {:?}", interfaces);
 
     let fields = parse_fields(reader, &constant_pool)?;
-    println!("{:?}", fields);
+    println!("Fields {:?}", fields);
 
     let methods = parse_methods(reader, &constant_pool)?;
     for i in 0..methods.len() {
-        println!("{} - {:?}", i, methods[i]);
+        println!("Method {}\n\t{:?}", i, methods[i]);
     }
 
     let attributes = parse_attributes(reader, &constant_pool)?;
     for i in 0..attributes.len() {
-        println!("{} - {:?}", i, attributes[i]);
+        println!("Attribute {}\n\t{:?}", i, attributes[i]);
     }
+    println!();
 
     Ok(Class {
         constant_pool,

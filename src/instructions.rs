@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 
-use bitflags::_core::convert::Infallible;
 use num_enum::TryFromPrimitive;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, Clone, Copy)]
@@ -28,6 +27,7 @@ pub enum Instruction {
     LLoad1 = 31,
     ALoad0 = 42,
     ALoad1 = 43,
+    IStore1 = 60,
     Dup = 89,
     IAdd = 96,
     LAdd = 97,
@@ -40,14 +40,15 @@ pub enum Instruction {
     AReturn = 176,
     Return = 177,
     InvokeSpecial = 183,
+    InvokeStatic = 184,
 }
 
 impl Instruction {
     pub fn get_width(&self) -> usize {
         match self {
-            Instruction::LDC => 2,           // Unsigned byte arg
-            Instruction::IfACmpNeq => 3,     // 2 reference args
-            Instruction::InvokeSpecial => 3, // 2 byte args
+            Instruction::LDC => 2,       // Unsigned byte arg
+            Instruction::IfACmpNeq => 3, // 2 reference args
+            Instruction::InvokeSpecial | Instruction::InvokeStatic => 3, // 2 byte args
             _ => 1,
         }
     }

@@ -4,7 +4,7 @@ use std::str;
 
 use num_enum::TryFromPrimitive;
 
-use ConstantInfo::*;
+use Constant::*;
 use ConstantTag::*;
 
 use crate::execution::DataType;
@@ -34,7 +34,7 @@ pub enum ConstantTag {
 }
 
 #[derive(Debug)]
-pub enum ConstantInfo {
+pub enum Constant {
     Empty,
     ClassInfo {
         tag: ConstantTag,
@@ -42,7 +42,7 @@ pub enum ConstantInfo {
     },
     FieldInfo {
         tag: ConstantTag,
-        name_index: u16,
+        class_index: u16,
         name_and_type_index: u16,
     },
     StringInfo {
@@ -98,19 +98,13 @@ pub enum ConstantInfo {
     },
 }
 
-#[derive(Debug)]
-pub struct Constant {
-    tag: ConstantTag,
-    info: ConstantInfo,
-}
-
 impl Constant {
     pub fn get_constant_value(&self, constant_pool: &Vec<Constant>) -> Option<DataType> {
-        match self.info {
-            IntInfo { tag, value } => Some(DataType::Integer(value)),
-            FloatInfo { tag, value } => Some(DataType::Float(value)),
-            LongInfo { tag, value } => Some(DataType::Long(value)),
-            DoubleInfo { tag, value } => Some(DataType::Double(value)),
+        match self {
+            IntInfo { tag, value } => Some(DataType::Integer(*value)),
+            FloatInfo { tag, value } => Some(DataType::Float(*value)),
+            LongInfo { tag, value } => Some(DataType::Long(*value)),
+            DoubleInfo { tag, value } => Some(DataType::Double(*value)),
             StringInfo { tag, index } => {
                 // TODO implement string data types
                 None
@@ -119,6 +113,20 @@ impl Constant {
             _ => None,
         }
     }
+
+    // pub fn get_method_name_and_type(
+    //     &self,
+    //     constant_pool: &Vec<Constant>,
+    // ) -> Option<(String, String, String)> {
+    //     let (class_index, name_and_type_index) = match self {
+    //         FieldInfo {
+    //             tag,
+    //             class_index,
+    //             name_and_type_index,
+    //         } => (class_index, name_and_type_index),
+    //         _ => return None,
+    //     };
+    // }
 }
 
 pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
@@ -131,84 +139,78 @@ pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
 
     for _ in 1..constant_pool_count {
         if skip {
-            pool.push(Constant {
-                tag: Placeholder,
-                info: Empty,
-            });
+            pool.push(Empty);
             skip = false;
             continue;
         }
         let tag_num = read_u1(reader)?;
         let tag = ConstantTag::try_from(tag_num).unwrap();
-        let constant = Constant {
-            tag,
-            info: match tag {
-                Class => ClassInfo {
-                    tag,
-                    name_index: read_u2(reader)?,
-                },
-                FieldRef | MethodRef | InterfaceMethodRef => FieldInfo {
-                    tag,
-                    name_index: read_u2(reader)?,
-                    name_and_type_index: read_u2(reader)?,
-                },
-                ConstString => StringInfo {
-                    tag,
-                    index: read_u2(reader)?,
-                },
-                Integer => IntInfo {
-                    tag,
-                    value: read_u4(reader)? as i32,
-                },
-                Float => FloatInfo {
-                    tag,
-                    value: f32::from_bits(read_u4(reader)?),
-                },
-                Long => LongInfo {
-                    tag,
-                    value: read_u8(reader)? as i64,
-                },
-                Double => DoubleInfo {
-                    tag,
-                    value: f64::from_bits(read_u8(reader)?),
-                },
-                NameAndType => NameAndTypeInfo {
-                    tag,
-                    name_index: read_u2(reader)?,
-                    descriptor_index: read_u2(reader)?,
-                },
-                Utf8 => {
-                    let length = read_u2(reader)? as u64;
-                    let bytes = read_bytes(length, reader)?;
-                    Utf8Info {
-                        tag,
-                        value: str::from_utf8(bytes.as_slice()).unwrap().to_string(),
-                    }
-                }
-                MethodHandle => MethodHandleInfo {
-                    tag,
-                    kind: read_u1(reader)?,
-                    index: read_u2(reader)?,
-                },
-                MethodType => MethodTypeInfo {
-                    tag,
-                    descriptor_index: read_u2(reader)?,
-                },
-                Dynamic | InvokeDynamic => DynamicInfo {
-                    tag,
-                    bootstrap_method_attr_index: read_u2(reader)?,
-                    name_and_type_index: read_u2(reader)?,
-                },
-                Module => ModuleInfo {
-                    tag,
-                    name_index: read_u2(reader)?,
-                },
-                Package => PackageInfo {
-                    tag,
-                    name_index: read_u2(reader)?,
-                },
-                _ => Empty,
+        let constant = match tag {
+            Class => ClassInfo {
+                tag,
+                name_index: read_u2(reader)?,
             },
+            FieldRef | MethodRef | InterfaceMethodRef => FieldInfo {
+                tag,
+                class_index: read_u2(reader)?,
+                name_and_type_index: read_u2(reader)?,
+            },
+            ConstString => StringInfo {
+                tag,
+                index: read_u2(reader)?,
+            },
+            Integer => IntInfo {
+                tag,
+                value: read_u4(reader)? as i32,
+            },
+            Float => FloatInfo {
+                tag,
+                value: f32::from_bits(read_u4(reader)?),
+            },
+            Long => LongInfo {
+                tag,
+                value: read_u8(reader)? as i64,
+            },
+            Double => DoubleInfo {
+                tag,
+                value: f64::from_bits(read_u8(reader)?),
+            },
+            NameAndType => NameAndTypeInfo {
+                tag,
+                name_index: read_u2(reader)?,
+                descriptor_index: read_u2(reader)?,
+            },
+            Utf8 => {
+                let length = read_u2(reader)? as u64;
+                let bytes = read_bytes(length, reader)?;
+                Utf8Info {
+                    tag,
+                    value: str::from_utf8(bytes.as_slice()).unwrap().to_string(),
+                }
+            }
+            MethodHandle => MethodHandleInfo {
+                tag,
+                kind: read_u1(reader)?,
+                index: read_u2(reader)?,
+            },
+            MethodType => MethodTypeInfo {
+                tag,
+                descriptor_index: read_u2(reader)?,
+            },
+            Dynamic | InvokeDynamic => DynamicInfo {
+                tag,
+                bootstrap_method_attr_index: read_u2(reader)?,
+                name_and_type_index: read_u2(reader)?,
+            },
+            Module => ModuleInfo {
+                tag,
+                name_index: read_u2(reader)?,
+            },
+            Package => PackageInfo {
+                tag,
+                name_index: read_u2(reader)?,
+            },
+            _ => Empty,
         };
         pool.push(constant);
         if tag == Double || tag == Long {
@@ -222,9 +224,9 @@ pub fn parse_constant_pool(reader: &mut dyn Read) -> Result<Vec<Constant>> {
 
 // TODO change this into a Result when I figure out error handling
 pub fn resolve_utf8(index: usize, constant_pool: &Vec<Constant>) -> Option<String> {
-    match &constant_pool[index - 1].info {
-        ConstantInfo::Utf8Info { tag, value } => Some(value.to_string()),
-        ConstantInfo::ClassInfo { tag, name_index } => {
+    match &constant_pool[index - 1] {
+        Constant::Utf8Info { tag, value } => Some(value.to_string()),
+        Constant::ClassInfo { tag, name_index } => {
             resolve_utf8(*name_index as usize, constant_pool)
         }
         a => {
